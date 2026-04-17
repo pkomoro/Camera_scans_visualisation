@@ -5,24 +5,17 @@ import time
 import multiprocessing
 import itertools
 
-def plot_xy(data, paths, distance, z_start, z_step, j):
-    z = 300 + distance - (z_start + j*z_step)
-    plt.imshow(data, cmap='inferno')
-    plt.savefig(paths + '_xy_z' + str(z) + 'mm.jpg', dpi = 300)
-    plt.savefig(paths + '_xy_z' + str(z) + 'mm.svg')
-    plt.close()
-
-    
-
 
 if __name__ == "__main__":
     # path to the folder containing .npy files
     path ="C:/Users/komor/OneDrive - Wojskowa Akademia Techniczna/Pomiary/Łącze THz/Terasense 90 mW"
 
     # closest distance from the structure to the camera in [mm]
-    distance = 10
+    distance = 300
     
     paths = [f for f in Path(path).glob("*.npy")]
+
+    print(*paths, sep='\n')
 
     paths_meta = [f for f in Path(path).glob("*.meta")]
     
@@ -43,10 +36,14 @@ if __name__ == "__main__":
 
     start_time = time.time()
 
-    plt.xlabel('x [mm]')
-    plt.ylabel('y [mm]')
+                     
+    radii = [np.zeros(len(data[i])) for i in range(len(data))]
+    distances = [np.zeros(len(data[i])) for i in range(len(data))]
+
     
+
     for i in range(len(paths)):
+
         index = data_meta[i].find("Step Z")
         data_meta[i] = data_meta[i][(index+8):]
 
@@ -65,24 +62,34 @@ if __name__ == "__main__":
         index = data_meta[i].find("mm")
         z_stop = float(data_meta[i][:(index-1)])
 
-        # print(f"Step Z: {z_step}\n Start Z: {z_start}\n Stop Z: {z_stop}\n")
+        distances[i] = distance + 300 - z_start - np.arange(len(data[i]))*z_step
 
-        #for j in range(len(data[i])):
-                       
-            # plt.imshow(data[i][j,:,:], cmap='inferno')
-            # plt.savefig(paths[i] + '_xy_z' + str(z) + 'mm.jpg', dpi = 300)
-            # plt.savefig(paths[i] + '_xy_z' + str(z) + 'mm.svg')
-            # plt.close()
-        
-       
+        for j in range(len(data[i])):           
+            threshold = 1/np.e**2 * np.max(data[i][j])
+            radii[i][j] = np.sqrt(np.sum(data[i][j] > threshold) * 2.25 / np.pi)
 
-        with multiprocessing.Pool(processes=4) as pool:
-            pool.starmap(plot_xy, iterable = [*zip(data[i], itertools.repeat(paths[i], len(data[i])), 
-                                                   itertools.repeat(distance, len(data[i])), itertools.repeat(z_start, len(data[i])), 
-                                                   itertools.repeat(z_step, len(data[i])), range(len(data[i])))])
             
-      
 
+        
+    radii = np.concatenate(radii)
+    distances = np.concatenate(distances)
+
+    # Fit a line to the data
+    coefficients = np.polyfit(distances, radii, 1)
+    fit_line = np.poly1d(coefficients)
+    fitted_radii = fit_line(distances)
+    angle_deg = np.degrees(np.arctan(coefficients[0]))
+
+    plt.figure()
+    plt.plot(distances, radii, 'o-')
+    plt.plot(distances, fitted_radii, 'r--', label=f'Fit: {angle_deg:.2f}°')
+    plt.legend()
+    plt.xlabel('Distance (mm)')
+    plt.ylabel('Radius (mm)')
+    plt.title('Divergence of the beam')
+    
+    plt.savefig(path + '/divergence_plot.jpg', dpi=1000, bbox_inches='tight')
+    plt.savefig(path + '/divergence_plot.svg', bbox_inches='tight')
 
     end_time = time.time()
     print(f"Execution time: {end_time - start_time} seconds\n")
