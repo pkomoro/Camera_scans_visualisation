@@ -11,7 +11,7 @@ if __name__ == "__main__":
     path ="C:/Users/komor/OneDrive - Wojskowa Akademia Techniczna/Pomiary/Łącze THz/Terasense 90 mW"
 
     # closest distance from the structure to the camera in [mm]
-    distance = 300
+    distance = 175
     
     paths = [f for f in Path(path).glob("*.npy")]
 
@@ -79,6 +79,9 @@ if __name__ == "__main__":
     fit_line = np.poly1d(coefficients)
     fitted_radii = fit_line(distances)
     angle_deg = np.degrees(np.arctan(coefficients[0]))
+
+    print(f"Fitted line coefficients: {coefficients}")
+    print(f"Divergence angle: {angle_deg:.2f} degrees")
 
     plt.figure()
     plt.plot(distances, radii, 'o-')

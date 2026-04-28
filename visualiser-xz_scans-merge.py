@@ -7,7 +7,10 @@ if __name__ == "__main__":
 
     # path to the folder containing .npy files
     path ="C:/Users/komor/OneDrive - Wojskowa Akademia Techniczna/Pomiary/Łącze THz/Terasense 90 mW"
+
+
     
+    # paths = [f for f in Path(path).glob("f300*610*.npy")]
     paths = [f for f in Path(path).glob("*.npy")]
 
     print(*paths, sep='\n')
@@ -36,7 +39,12 @@ if __name__ == "__main__":
     plt.xlabel('z [mm]')
     plt.ylabel('x [mm]')
 
-    ax.set_xlim(0, 300)
+    # z0 = 1240
+    z0 = 175
+    
+    # ax.set_xlim(z0-300, z0)
+    ax.set_xlim(z0, z0 + 300)
+    #ax.set_ylim(-24, 24)
     ax.set_ylim(-120, 120)
 
     ax.set_facecolor('black')
@@ -79,19 +87,32 @@ if __name__ == "__main__":
         index = data_meta[i].find("mm")
         z_stop = float(data_meta[i][:(index-1)])
 
+        if "1710mm" in paths[i]:
+            z_start += 300
+            z_stop += 300
+
 
         image = np.swapaxes(data[i], 0, 2)
         image = np.flip(image,2)
 
         vmax = exposure_table[exposure]
+        # vmax = np.max(data)
 
     
         plt.imshow(image[int((y_stop-y_start)/1.5/2) + y,:,:], cmap='inferno', aspect = 'auto',
-                   extent=[300 - z_stop, 300 - z_start, y_start - (y_start + y_stop)/2, y_stop - (y_start + y_stop)/2], vmin = 0, vmax = vmax)
+                   extent=[z0 + 300 - z_stop, z0 + 300 - z_start, y_start - (y_start + y_stop)/2, y_stop - (y_start + y_stop)/2], vmin = 0, vmax = vmax)
 
     
+    # Add a straight line to the plot
+    alpha = 8.32  # divergence angle in degrees
+    a = np.tan(np.radians(alpha))  # slope
+    b = 5.92  # intercept
+    z_line = np.linspace(z0, z0 + 300, 100)
+    x_line = a * z_line + b
+    x_line_neg = -a * z_line - b
+    ax.plot(z_line, x_line, 'r--', linewidth=2)
+    ax.plot(z_line, x_line_neg, 'r--', linewidth=2)
 
-    
 
     plt.savefig(paths[i] + '_xz_y' + str(y) + 'px_merged.jpg', dpi = 1000)
     plt.savefig(paths[i] + '_xz_y' + str(y) + 'px_merged.svg')

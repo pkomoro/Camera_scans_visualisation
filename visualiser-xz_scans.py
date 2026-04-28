@@ -6,7 +6,7 @@ import pathlib
 if __name__ == "__main__":
 
     # path to the folder containing .npy files
-    path ="C:/Users/komor/OneDrive - Wojskowa Akademia Techniczna/Pomiary/Łącze THz/Terasense 90 mW"
+    path ="C:/Users/komor/OneDrive - Wojskowa Akademia Techniczna/Pomiary/Łącze THz/Ogniska soczewek - kamera"
 
     
     paths = [f for f in Path(path).glob("*.npy")]
@@ -69,12 +69,12 @@ if __name__ == "__main__":
         image = np.swapaxes(data[i], 0, 2)
         image = np.flip(image,2)
 
-        y = 48
+        y = 0
 
         plt.xlabel('z [mm]')
         plt.ylabel('x [mm]')
-        plt.imshow(image[y,:,:], cmap='inferno', aspect = 'auto',extent=[301 - z_stop, 301 - z_start, y_start - (y_start + y_stop)/2, y_stop - (y_start + y_stop)/2])
-        plt.savefig(paths[i] + '_xz_y' + str(y) + 'px.jpg', dpi = 1000)
+        plt.imshow(image[int((y_stop-y_start)/1.5/2) + y,:,:], cmap='inferno', aspect = 'auto',extent=[301 - z_stop, 301 - z_start, y_start - (y_start + y_stop)/2, y_stop - (y_start + y_stop)/2])
+        plt.savefig(paths[i] + '_xz_y' + str(y) + 'px.jpg', dpi = 300)
         plt.savefig(paths[i] + '_xz_y' + str(y) + 'px.svg')
         plt.close()
 
