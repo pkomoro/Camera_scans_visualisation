@@ -7,7 +7,17 @@ import re
 if __name__ == "__main__":
 
 
-    focal_length = 180  # mm, adjust based on your lens
+    focal_length = 118  # mm, adjust based on your lens
+
+    total_distance_map = {
+        118: 320,
+        158: 480,
+        180: 570
+    }
+    total_distance = total_distance_map.get(focal_length, 570)  # default to 570 mm if focal length not found
+
+
+
 
     # path to the folder containing .npy files
     path ="C:/Users/komor/OneDrive - Wojskowa Akademia Techniczna/Pomiary/Łącze THz/Ogniska soczewek - kamera"
@@ -18,8 +28,8 @@ if __name__ == "__main__":
 
     ploting = True
 
-    l = 3.14  # mm, wavelength of the beam
-    w0 = 6.84  # mm, beam waist radius
+    l = 3.21  # mm, wavelength of the beam
+    w0 = 7.04  # mm, beam waist radius
     
 
     paths_meta = [f for f in Path(path).glob("*.meta")]
@@ -51,6 +61,7 @@ if __name__ == "__main__":
     ax.set_facecolor('black')
 
     radii = [np.zeros(len(data[i])) for i in range(len(data))]
+    radii2 = [np.zeros(len(data[i])) for i in range(len(data))]
     distances = [np.zeros(len(data[i])) for i in range(len(data))]
 
     image_positions = [0 for i in range(len(data))]
@@ -61,16 +72,15 @@ if __name__ == "__main__":
         match = re.search(r"lens_d(\d{3})", Path(paths[j]).name)
         lens_d = int(match.group(1)) if match else None
 
-        print(f"Processing {paths[j]} with lens diameter {lens_d} mm")
+        print(f"Processing {paths[j]} with lens position {lens_d} mm")
 
         # koniec podstawki soczewki = 570 mm -> d = 360 mm od krawędzi anteny do środka soczewki
         # koniec podstawki soczewki = 430 | 20 | 690
         # koniec szyny z = 1 x 750 + 600 mm
         # z = 300 mm -> d = 570 mm od krawędzi anteny do powierzchni kamery
         
-        object_positions[j] = lens_d - 570 + 360
-
-        z0 = 570 - lens_d + 210
+        object_positions[j] = lens_d - 210         # mm, distance from the object (source) to the lens derived from positions on the rail (metadane)
+        z0 = total_distance - object_positions[j]  # mm, distance from the lens to the camera derived from positions on the rail (metadane)
         
         
         index = data_meta[j].find("Camera exposure setting:")
@@ -115,7 +125,8 @@ if __name__ == "__main__":
         image = np.flip(image,2)
 
         vmax = exposure_table[exposure]
-        vmax = np.max(data)
+        # vmax = np.max(data)
+        
 
         if ploting:
             plt.imshow(image[int((y_stop-y_start)/1.5/2) + y,:,:], cmap='inferno', aspect = 'auto',
@@ -129,11 +140,11 @@ if __name__ == "__main__":
         for k in range(len(data[j])):           
             threshold = 1/np.e**2 * np.max(data[j][k])
             radii[j][k] = np.sqrt(np.sum(data[j][k] > threshold) * 2.25 / np.pi)
-            
+            radii2[j][k] = np.sqrt(np.sum(data[j][k] > threshold) * 2.25 / np.pi)
         
         if ploting:
-            plt.savefig(paths[j] + '_xz_y' + str(y) + 'px_merged.jpg', dpi = 300, bbox_inches='tight')
-            # plt.savefig(paths[2*j] + '_xz_y' + str(y) + 'px_merged.svg')
+            plt.savefig(paths[j] + '_xz_y' + str(y) + 'px.jpg', dpi = 300, bbox_inches='tight')
+            # plt.savefig(paths[2*j] + '_xz_y' + str(y) + 'px.svg')
             plt.close()
 
         
@@ -158,7 +169,7 @@ if __name__ == "__main__":
             plt.ylabel('Radius (mm)')
             plt.title('Divergence of the beam')
     
-            plt.savefig(paths[j] + '_divergence_plot.jpg', dpi=300, bbox_inches='tight')
+            plt.savefig(paths[j] + '_divergence_plot.jpg', dpi=1000, bbox_inches='tight')
             # plt.savefig(paths[2*j] + '_divergence_plot.svg', bbox_inches='tight')
             plt.close()
 
@@ -206,41 +217,71 @@ if __name__ == "__main__":
 
         return U
 
-    
-    object_distances = np.linspace(np.min(object_positions), np.max(object_positions), 100)  # mm, range of object distances to consider
-    theoretical_image_positions = thin_lens_equation(object_distances, focal_length)
-    theoretical_image_positions_gaussian = gaussian_lens_equation(object_distances, focal_length, w0, l)
+    plt.figure(figsize=(10, 6))
+    plt.plot(object_positions, image_positions, 'o-', label='Experimental', linewidth=2, markersize=8)
 
+    object_distances = np.linspace(np.min(object_positions), np.max(object_positions), 100)  # mm, range of object distances to consider
+
+    for focal_length_scale in np.linspace(0.97, 0.99, 3):  # Adjust this scale factor as needed to better match the experimental data
+    
+        # theoretical_image_positions = thin_lens_equation(object_distances, focal_length * focal_length_scale)
+        theoretical_image_positions_gaussian = gaussian_lens_equation(object_distances, focal_length * focal_length_scale, w0, l)
+
+        # Plot comparison
+        
+        # plt.plot(object_distances, theoretical_image_positions, '--', label='Thin lens equation' + f' (scale: {focal_length_scale:.2f})', linewidth=2)
+        plt.plot(object_distances, theoretical_image_positions_gaussian, '--', label='Gaussian beam' + f' (scale: {focal_length_scale:.2f})', linewidth=2)
+
+
+    
+    z_max_values = []
+    z_values = np.linspace(focal_length + 10, 600.0, 200)  # mm, range of z values to evaluate the Kirchhoff integral
+    a = 187 / 2  # mm, radius of the lens aperture
 
 
     # Kirchhoff integral plot on object distance vs image distance
-    z_max_values = []
-    z_values = np.linspace(200, 700.0, 200)  # mm, range of z values to evaluate the Kirchhoff integral
-    a = 187 / 2  # mm, radius of the lens aperture
 
-    U_values = np.array([Kirchhoff_integral(z, -object_distances[0], focal_length, w0, l, a) for z in z_values])
-    intensity = np.abs(U_values)**2
+    # for dis in range(0,100,20):
 
-    U_values = np.array([Kirchhoff_integral(z, -object_distances[0], focal_length, w0, l, a) for z in z_values])
-    intensity = np.abs(U_values)**2
+    #     U_values = np.array([Kirchhoff_integral(z, -object_distances[dis], focal_length, w0, l, a) for z in z_values])
+    #     intensity = np.abs(U_values)**2
 
-    max_index = np.argmax(intensity)
-    max_z = z_values[max_index]
+    #     max_index = np.argmax(intensity)
+    #     max_z = z_values[max_index]
 
-    plt.figure(figsize=(10, 6))
-    plt.plot(z_values, intensity, 'b--', linewidth=2, label='Intensity |U|^2')
-    plt.axvline(x=max_z, color='r', linestyle='--', label=f'Max at z={max_z:.2f} mm')
-    plt.xlabel('z (mm)')
-    plt.ylabel('Field / Intensity')
-    plt.title(f'Kirchhoff Integral for zs={object_distances[0]:.2f} mm')
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    plt.savefig(Path(path) / 'kirchhoff_u_values_plot.jpg', dpi=300, bbox_inches='tight')
-    plt.close()
+    #     plt.figure(figsize=(10, 6))
+    #     plt.plot(z_values, intensity, 'b--', linewidth=2, label='Intensity |U|^2')
+    #     plt.axvline(x=max_z, color='r', linestyle='--', label=f'Max at z={max_z:.2f} mm')
+    #     plt.xlabel('z (mm)')
+    #     plt.ylabel('Field / Intensity')
+    #     plt.ylim(0, 0.03)
+    #     plt.title(f'Kirchhoff Integral for zs={object_distances[dis]:.2f} mm')
+    #     plt.legend()
+    #     plt.grid(True, alpha=0.3)
+    #     plt.savefig(path + '/kirchhoff_u_values_plot_obj' + str(int(object_distances[dis])) + 'mm.jpg', dpi=300, bbox_inches='tight')
+    #     plt.close()
 
    
+        
+    # Kirchhoff integrals for different apertures
+    # for scale in [0.25, 0.5, 1, 2, 4]:
 
+    #     a = 187 / 2  # mm, radius of the lens aperture
+    #     z_max_values = []
 
+    #     for zs in object_distances:
+    #         U_values = np.array([Kirchhoff_integral(z, -zs, focal_length, w0, l, scale * a) for z in z_values])
+    #         intensity = np.abs(U_values)**2
+    #         max_index = np.argmax(intensity)
+    #         z_max_values.append(z_values[max_index])
+    #         processed = len(z_max_values)
+    #         total = len(object_distances)
+    #         print(f"\rKirchhoff integral progress: {processed}/{total} object distances", end="", flush=True)
+    #         if processed == total:
+    #             print()
+
+    #     plt.plot(object_distances, z_max_values, '--', label='Kirchhoff integral' + f' (scale: {scale})', linewidth=2)
+    
     for zs in object_distances:
         U_values = np.array([Kirchhoff_integral(z, -zs, focal_length, w0, l, a) for z in z_values])
         intensity = np.abs(U_values)**2
@@ -251,21 +292,15 @@ if __name__ == "__main__":
         print(f"\rKirchhoff integral progress: {processed}/{total} object distances", end="", flush=True)
         if processed == total:
             print()
-
-        
-
-    # Plot comparison
-    plt.figure(figsize=(10, 6))
-    plt.plot(object_positions, image_positions, 'o-', label='Experimental', linewidth=2, markersize=8)
-    plt.plot(object_distances, theoretical_image_positions, 'r--', label='Thin lens equation', linewidth=2)
-    plt.plot(object_distances, theoretical_image_positions_gaussian, 'g--', label='Gaussian beam', linewidth=2)
     plt.plot(object_distances, z_max_values, 'b--', label='Kirchhoff integral', linewidth=2)
+    
+    
     plt.xlabel('Object Distance (mm)')
     plt.ylabel('Image Distance (mm)')
     plt.title('Object Positions: Experimental vs Theoretical')
     plt.legend()
     plt.grid(True, alpha=0.3)
-    plt.savefig(Path(path) / 'object_positions_comparison.jpg', dpi=300, bbox_inches='tight')
+    plt.savefig(path + '/f' + str(focal_length) + 'mm_object_positions_comparison.jpg', dpi=1000, bbox_inches='tight')
     plt.close()
 
     

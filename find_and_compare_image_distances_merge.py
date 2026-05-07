@@ -139,5 +139,6 @@ if __name__ == "__main__":
     
         plt.savefig(paths[2*j] + '_divergence_plot.jpg', dpi=300, bbox_inches='tight')
         # plt.savefig(paths[2*j] + '_divergence_plot.svg', bbox_inches='tight')
+        plt.close()
 
         
