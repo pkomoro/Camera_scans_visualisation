@@ -4,7 +4,7 @@ from pathlib import Path
 
 if __name__ == "__main__":
     # path to the folder containing .npy files
-    path ="C:/Users/komor/OneDrive - Wojskowa Akademia Techniczna/Pomiary/Passive THz PICS/tests1"
+    path ="C:/Users/komor/OneDrive - Wojskowa Akademia Techniczna/Pomiary/Światłowody terahercowe UW/seria 2"
     
     
     
